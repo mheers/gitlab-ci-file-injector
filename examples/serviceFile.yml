@@ -1,0 +1,10 @@
+- job: test
+  services:
+    - alias: proxy
+      exec: httpd-foreground
+      interpreter: "/bin/sh"
+      files:
+        - ./examples/apache2/cert.pem:/usr/local/apache2/conf/server.crt
+        - ./examples/apache2/key.pem:/usr/local/apache2/conf/server.key
+        - ./examples/apache2/httpd-ssp.conf:/usr/local/apache2/conf/extra/httpd-ssp.conf
+        - ./examples/apache2/httpd.conf:/usr/local/apache2/conf/extra/httpd.conf
