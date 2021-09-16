@@ -119,7 +119,7 @@ func (s *Service) renderEntrypoint() (string, error) {
 
 	for _, k := range keys {
 		content := contents[k]
-		dstFilePath := getSrcFilePath(k)
+		dstFilePath := getDstFilePath(k)
 		template, err := renderTemplate(dstFilePath, content)
 		if err != nil {
 			return "", err
@@ -127,10 +127,6 @@ func (s *Service) renderEntrypoint() (string, error) {
 		lines += template
 		lines += "\n"
 	}
-
-	// 	lines += `# pass control to the default image entrypoint
-	// exec "$@"
-	// `
 
 	lines += fmt.Sprintf("exec %s", s.Exec)
 
