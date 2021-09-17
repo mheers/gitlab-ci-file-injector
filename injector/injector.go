@@ -2,7 +2,8 @@ package injector
 
 import (
 	"bytes"
-	"errors"
+	"compress/gzip"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -17,6 +18,7 @@ import (
 )
 
 var prettyPrint bool = true
+var compressAndEncode bool = true
 
 func processExpression(expression string) string {
 	var prettyPrintExp = `(... | (select(tag != "!!str"), select(tag == "!!str") | select(test("(?i)^(y|yes|n|no|on|off)$") | not))  ) style=""`
@@ -65,6 +67,7 @@ type ServiceFile struct {
 type Service struct {
 	Alias       string   `yaml:"alias"`
 	Exec        string   `yaml:"exec"`
+	Compressed  bool     `yaml:"compressed"`
 	Interpreter string   `yaml:"interpreter"`
 	Files       []string `yaml:"files"`
 }
@@ -106,21 +109,39 @@ func getService(sf []*ServiceFile, job, serviceAlias string) (*Service, error) {
 }
 
 func (s *Service) renderEntrypoint() (string, error) {
-	contents, err := s.readFileContents()
+	contentBytesMap, err := s.readFileContents()
 	if err != nil {
 		return "", err
 	}
-	lines := ""
+
 	keys := []string{}
-	for key := range contents {
+	for key := range contentBytesMap {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 
+	var data string
+
+	lines := ""
 	for _, k := range keys {
-		content := contents[k]
+		contentBytes := contentBytesMap[k]
 		dstFilePath := getDstFilePath(k)
-		template, err := renderTemplate(dstFilePath, content)
+
+		if s.Compressed {
+			c, err := compress(contentBytes)
+			if err != nil {
+				return "", err
+			}
+			data = encode(c)
+		} else {
+			data = string(contentBytes)
+			err = checkFileContent(data)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		template, err := renderTemplate(dstFilePath, data, s.Compressed)
 		if err != nil {
 			return "", err
 		}
@@ -133,20 +154,31 @@ func (s *Service) renderEntrypoint() (string, error) {
 	return lines, nil
 }
 
-func (s *Service) readFileContents() (map[string]string, error) {
-	results := make(map[string]string)
+func compress(data []byte) ([]byte, error) {
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	if _, err := gz.Write([]byte(data)); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func encode(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
+}
+
+func (s *Service) readFileContents() (map[string][]byte, error) {
+	results := make(map[string][]byte)
 	for _, f := range s.Files {
 		srcFilePath := getSrcFilePath(f)
 		srcFileContentBytes, err := ioutil.ReadFile(srcFilePath)
 		if err != nil {
 			return nil, err
 		}
-		srcFileContent := string(srcFileContentBytes)
-		err = checkFileContent(srcFileContent)
-		if err != nil {
-			return nil, err
-		}
-		results[f] = srcFileContent
+		results[f] = srcFileContentBytes
 	}
 	return results, nil
 }
@@ -154,7 +186,7 @@ func (s *Service) readFileContents() (map[string]string, error) {
 func checkFileContent(content string) error {
 	for i, line := range strings.Split(content, "\n") {
 		if strings.HasSuffix(line, " ") || strings.HasSuffix(line, "\t") {
-			return errors.New(fmt.Sprintf("file contains ending spaces or tabs: line %d", i+1))
+			return fmt.Errorf("file contains ending spaces or tabs: line %d", i+1)
 		}
 	}
 	return nil
@@ -167,7 +199,7 @@ func getDstFilePath(f string) string {
 	return strings.Split(f, ":")[1]
 }
 
-func renderTemplate(path, content string) (string, error) {
+func renderTemplate(path, content string, compressed bool) (string, error) {
 	specTemplate := `
 # inject {{ .Base }}
 mkdir -p {{ .Folder }}
@@ -175,6 +207,13 @@ cat <<EOF > {{ .Path }}
 {{ .Content }}
 EOF
 `
+	if compressed {
+		specTemplate = `
+# inject {{ .Base }}
+mkdir -p {{ .Folder }}
+echo {{ .Content }} | base64 -d | gunzip > {{ .Path }}
+`
+	}
 
 	tmpl, err := template.New("spec").
 		Funcs(sprig.TxtFuncMap()).

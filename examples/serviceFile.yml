@@ -3,6 +3,7 @@
     - alias: proxy
       exec: httpd-foreground
       interpreter: "/bin/sh"
+      compressed: true
       files:
         - ./examples/apache2/cert.pem:/usr/local/apache2/conf/server.crt
         - ./examples/apache2/key.pem:/usr/local/apache2/conf/server.key

@@ -13,9 +13,9 @@
             "args": [
                 "inject",
                 "-i",
-                "serviceFile.yml",
+                "./examples/serviceFile.yml",
                 "-o",
-                ".gitlab-ci.yml",
+                "./examples/.gitlab-ci.yml",
             ]
         }
     ]

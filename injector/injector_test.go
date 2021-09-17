@@ -26,7 +26,7 @@ func TestRenderServiceFileEntrypoint(t *testing.T) {
 }
 
 func TestRenderTemplate(t *testing.T) {
-	template, err := renderTemplate("/var/log/syslog", "juhu, it is a log line")
+	template, err := renderTemplate("/var/log/syslog", "juhu, it is a log line", false)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, template)
 }
