@@ -137,7 +137,8 @@ func (s *Service) renderEntrypoint() (string, error) {
 			data = string(contentBytes)
 			err = checkFileContent(data)
 			if err != nil {
-				return "", err
+				srcFilePath := getSrcFilePath(k)
+				return "", fmt.Errorf("error in %s: %s", srcFilePath, err.Error())
 			}
 		}
 

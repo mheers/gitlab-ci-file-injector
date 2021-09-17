@@ -92,5 +92,5 @@ with all the file contents rendered to the proxy services entrypoint.
 # TODO:
 
 - [ ] correct error logging
-- [ ] print file path where lines with ending spaces are
+- [x] print file path where lines with ending spaces are
 - [ ] restructure and clean up code
